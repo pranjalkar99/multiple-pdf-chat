@@ -7,7 +7,7 @@ WORKDIR /app
 # Copy the requirements.txt file to the container
 COPY  requirements.txt .
 
-COPY htmlTemplates.py
+COPY htmlTemplates.py .
 
 RUN pip install --upgrade pip
 
