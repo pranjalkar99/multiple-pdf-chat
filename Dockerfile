@@ -9,6 +9,8 @@ COPY  requirements.txt .
 
 COPY htmlTemplates.py .
 
+COPY test.py .
+
 RUN pip install --upgrade pip
 
 # Install the Python dependencies
@@ -20,5 +22,5 @@ COPY app.py .
 
 
 # Set the entrypoint command to run your FastAPI app
-CMD ["streamlit", "run", "app.py"]
+CMD ["uvicorn", "test:app", "--host", "0.0.0.0"]
 
