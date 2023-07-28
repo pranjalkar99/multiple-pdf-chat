@@ -1,4 +1,5 @@
 from fastapi import FastAPI, File, UploadFile
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from langchain.text_splitter import CharacterTextSplitter
@@ -54,13 +55,13 @@ def get_conversation_chain(vectorstore):
     return conversation_chain
 
 
-def handle_user_input(user_question, User_id, session_id):
-    chain = conversation_chain.get(User_id, {}).get(session_id)
+def handle_user_input(user_question, user_id, session_id):
+    chain = conversation_chain.get(user_id, {}).get(session_id)
     if chain is None:
         return None, None
 
     response = chain({'question': user_question})
-    history = chat_history.get(User_id, {}).get(session_id)
+    history = chat_history.get(user_id, {}).get(session_id)
     if history is None:
         history = []
 
@@ -71,37 +72,44 @@ def handle_user_input(user_question, User_id, session_id):
 
 
 @app.post("/upload")
-async def upload_pdfs(User_id: str, session_id: str, files: List[UploadFile] = File(...)):
+async def upload_pdfs(user_id: str, session_id: str, files: List[UploadFile] = File(...)):
     global vectorstore, conversation_chain, chat_history
 
     raw_text = get_pdf_text(files)
     text_chunks = get_text_chunks(raw_text)
 
-    if User_id not in vectorstore:
-        vectorstore[User_id] = {}
+    if user_id not in vectorstore:
+        vectorstore[user_id] = {}
 
-    vectorstore[User_id][session_id] = get_vectorstore(text_chunks)
+    vectorstore[user_id][session_id] = get_vectorstore(text_chunks)
     print(vectorstore)
 
-    if User_id not in conversation_chain:
-        conversation_chain[User_id] = {}
+    if user_id not in conversation_chain:
+        conversation_chain[user_id] = {}
 
-    if session_id not in conversation_chain[User_id]:
-        vectorstore_instance = vectorstore[User_id][session_id]
-        conversation_chain[User_id][session_id] = get_conversation_chain(vectorstore_instance)
+    if session_id not in conversation_chain[user_id]:
+        vectorstore_instance = vectorstore[user_id][session_id]
+        conversation_chain[user_id][session_id] = get_conversation_chain(vectorstore_instance)
     print(conversation_chain)
 
-    if User_id not in chat_history:
-        chat_history[User_id] = {}
+    if user_id not in chat_history:
+        chat_history[user_id] = {}
 
-    if session_id not in chat_history[User_id]:
-        chat_history[User_id][session_id] = []
+    if session_id not in chat_history[user_id]:
+        chat_history[user_id][session_id] = []
     print(chat_history)
 
     return {"message": "PDFs uploaded and processed successfully"}
 
 
 @app.post("/chat")
-async def chat_with_pdf(User_id: str, session_id: str, question: str):
-    answer, user_chat_history = handle_user_input(question, User_id, session_id)
-    return {"answer": answer, "chat_history": user_chat_history}
+async def chat_with_pdf(user_id: str, session_id: str, question: str):
+    answer, user_chat_history = handle_user_input(question, user_id, session_id)
+    return {"answer": answer}#, "chat_history": user_chat_history}
+
+@app.get("/clear")
+async def clear_db(user_id: str, session_id: str):
+    del chat_history[user_id]
+    del vectorstore[user_id]
+    del conversation_chain[user_id]
+    return JSONResponse({"status":"Removed old configuration.. Upload again"})
